@@ -13,21 +13,14 @@
 #define HFDP_HEAD_BF_OFFSET  3
 #define HFDP_HEAD_SEQ_MASK   0x07
 
-#if (HFDP_NRT_DATA_LEN <= 0xFF)
-#define RING_PTR_TYPE uint8_t
-#elif (HFDP_NRT_DATA_LEN <= 0xFFFF)
-#define RING_PTR_TYPE uint16_t
-#elif (HFDP_NRT_DATA_LEN <= 0x7FFFFFFF)
 #define RING_PTR_TYPE uint32_t
-#else
-#error "HFDP_NRT_DATA_LEN is too large"
-#endif
+
 
 typedef struct _hfdp_ring {
-    uint8_t buffer[HFDP_NRT_BUFFER_LEN];  // 本地非实时数据缓存
-    RING_PTR_TYPE len;                    // 本地非实时数据长度
-    RING_PTR_TYPE head;                   // 本地非实时数据头指针
-    RING_PTR_TYPE tail;                   // 本地非实时数据尾指针
+    uint8_t buffer[HFDP_NRT_BUFFER_LEN];  // 数据缓存
+    RING_PTR_TYPE len;                    // 有效数据长度
+    RING_PTR_TYPE head;                   // 数据头指针
+    RING_PTR_TYPE tail;                   // 数据尾指针
 } hfdp_ring_t;
 
 unsigned char hfdp_crc8(unsigned char *message, unsigned char byte_len);

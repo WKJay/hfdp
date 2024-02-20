@@ -109,7 +109,7 @@ int hfdp_slave_response(hfdp_slave_t *slave, uint8_t *data, uint8_t len) {
     return 0;
 }
 
-int hfdp_slave_write_nrtd(hfdp_slave_t *slave, uint8_t *data, uint8_t len) {
+int hfdp_slave_write_nrtd(hfdp_slave_t *slave, uint8_t *data, uint32_t len) {
     if (slave == NULL || data == NULL || len == 0) {
         return -1;
     }
@@ -118,7 +118,29 @@ int hfdp_slave_write_nrtd(hfdp_slave_t *slave, uint8_t *data, uint8_t len) {
         return -1;
     }
 
-    hfdp_ring_enqueue(&slave->mgr.send_nrtd, data, len);
+    return hfdp_ring_enqueue(&slave->mgr.send_nrtd, data, len);
+}
 
-    return 0;
+int hfdp_slave_read_nrtd(hfdp_slave_t *slave, uint8_t *data, uint32_t len) {
+    int ret = -1;
+    if (slave == NULL || data == NULL) {
+        HFDP_LOG("invalid incoming params\r\n");
+        return -1;
+    }
+
+    if (len == 0) return 0;
+
+    if (hfdp_ring_is_empty(&slave->mgr.recv_nrtd)) {
+        return -1;
+    }
+
+    ret = hfdp_ring_dequeue(&slave->mgr.recv_nrtd, data, len);
+
+    if (slave->mgr.local_bf) {
+        if (!hfdp_ring_is_full(&slave->mgr.recv_nrtd, slave->mgr.remote_nrtd_len)) {
+            slave->mgr.local_bf = 0;
+        }
+    }
+
+    return ret;
 }
