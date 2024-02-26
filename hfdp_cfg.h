@@ -7,7 +7,6 @@
 #define HFDP_PRINTF printf
 #endif
 
-#define HFDP_NRT_BUFFER_LEN  64  // 本地非实时数据长度
 #define HFDP_SEND_BUFFER_LEN 8   // 发送缓存长度
 
 #define HFDP_DEFAULT_REMOTE_RTD_LEN  3  // 默认远端实时数据长度

@@ -13,6 +13,10 @@ int hfdp_mgr_init(hfdp_mgr_t *mgr, hfdp_cfg_t *cfg) {
         HFDP_LOG("mgr is NULL\r\n");
         return -1;
     }
+    if (cfg->recv_nrtd_buf == NULL || cfg->send_nrtd_buf == NULL) {
+        HFDP_LOG("recv_nrtd_buf or send_nrtd_buf is NULL\r\n");
+        return -1;
+    }
 
     mgr->rtd_ptr = NULL;
     mgr->seq = 0;
@@ -28,8 +32,8 @@ int hfdp_mgr_init(hfdp_mgr_t *mgr, hfdp_cfg_t *cfg) {
         return -1;
     }
 
-    hfdp_ring_init(&mgr->recv_nrtd);
-    hfdp_ring_init(&mgr->send_nrtd);
+    ringbuffer_init(&mgr->recv_nrtd, cfg->recv_nrtd_buf, cfg->recv_nrtd_len);
+    ringbuffer_init(&mgr->send_nrtd, cfg->send_nrtd_buf, cfg->send_nrtd_len);
 
     return 0;
 }

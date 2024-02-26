@@ -20,8 +20,8 @@ typedef struct _hfdp_mgr {
     uint8_t seq;                                // 报文序列号
     uint8_t remote_bf : 1;                      // 远端缓存满标志
     uint8_t local_bf : 1;                       // 本地缓存满标志
-    hfdp_ring_t recv_nrtd;                      // 接收到的非实时数据缓存
-    hfdp_ring_t send_nrtd;                      // 待发送的非实时数据缓存
+    ringbuffer_t recv_nrtd;                     // 接收到的非实时数据缓存
+    ringbuffer_t send_nrtd;                     // 待发送的非实时数据缓存
     rtd_rd_cb_t rtd_rd_cb;                      // 实时数据接收回调
     rtd_wr_cb_t rtd_wr_cb;                      // 实时数据发送回调
     hfdp_hw_send_t hfdp_hw_send;                // 硬件发送接口
@@ -31,6 +31,10 @@ typedef struct _hfdp_cfg {
     rtd_rd_cb_t rtd_rd_cb;        // 实时数据接收回调
     rtd_wr_cb_t rtd_wr_cb;        // 实时数据发送回调
     hfdp_hw_send_t hfdp_hw_send;  // 硬件发送接口
+    uint8_t *recv_nrtd_buf;       // 接收非实时数据缓存
+    uint8_t *send_nrtd_buf;       // 发送非实时数据缓存
+    uint32_t recv_nrtd_len;       // 非实时数据缓存大小
+    uint32_t send_nrtd_len;        // 远端实时数据长度
 } hfdp_cfg_t;
 
 int hfdp_mgr_init(hfdp_mgr_t *mgr, hfdp_cfg_t *cfg);

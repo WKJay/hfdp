@@ -13,21 +13,19 @@
 #define HFDP_HEAD_BF_OFFSET  3
 #define HFDP_HEAD_SEQ_MASK   0x07
 
-#define RING_PTR_TYPE uint32_t
-
-
-typedef struct _hfdp_ring {
-    uint8_t buffer[HFDP_NRT_BUFFER_LEN];  // 数据缓存
-    RING_PTR_TYPE len;                    // 有效数据长度
-    RING_PTR_TYPE head;                   // 数据头指针
-    RING_PTR_TYPE tail;                   // 数据尾指针
-} hfdp_ring_t;
-
 unsigned char hfdp_crc8(unsigned char *message, unsigned char byte_len);
 
-int hfdp_ring_init(hfdp_ring_t *ring);
-uint8_t hfdp_ring_is_full(hfdp_ring_t *ring, RING_PTR_TYPE len);
-uint8_t hfdp_ring_is_empty(hfdp_ring_t *ring);
-int hfdp_ring_enqueue(hfdp_ring_t *ring, uint8_t *data, RING_PTR_TYPE len);
-int hfdp_ring_dequeue(hfdp_ring_t *ring, uint8_t *data, RING_PTR_TYPE len);
+typedef struct _ringbuffer {
+    uint32_t in;
+    uint32_t out;
+    uint32_t msize;  // ringbuffer最大大小，实际能存储的数据长度为msize-1
+    uint8_t *buffer;
+} ringbuffer_t;
+
+int ringbuffer_init(ringbuffer_t *rb, uint8_t *buf, uint32_t size);
+uint32_t ringbuffer_out(ringbuffer_t *rb, uint8_t *data, uint32_t len);
+uint32_t ringbuffer_in(ringbuffer_t *rb, uint8_t *data, uint32_t len);
+uint8_t ringbuffer_is_full(ringbuffer_t *rb, uint32_t len);
+uint8_t ringbuffer_is_empty(ringbuffer_t *rb);
+
 #endif  // HFDP_UTILS__

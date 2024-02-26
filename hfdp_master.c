@@ -50,9 +50,9 @@ int hfdp_master_request(hfdp_master_t *master) {
 
     // NRTD 数据
     // 如果对方非实时数据缓存满了，则此处 DF 标志位不会被置位
-    if ((!master->mgr.remote_bf) && (!hfdp_ring_is_empty(&master->mgr.send_nrtd))) {
+    if ((!master->mgr.remote_bf) && (!ringbuffer_is_empty(&master->mgr.send_nrtd))) {
         master->mgr.send_buffer[0] |= 1 << HFDP_HEAD_DF_OFFSET;
-        hfdp_ring_dequeue(&master->mgr.send_nrtd, master->mgr.send_buffer + send_len, master->mgr.local_nrtd_len);
+        ringbuffer_out(&master->mgr.send_nrtd, master->mgr.send_buffer + send_len, master->mgr.local_nrtd_len);
     }
     // ! 无论有没有NRTD数据，数据帧中都会有对应的数据位存在，并且长度固定
     //   因此实际的有效数据需要应用层去判断和解析
@@ -103,9 +103,9 @@ int hfdp_master_response_handler(hfdp_master_t *master, uint8_t *data, uint8_t l
     // 存在非实时数据
     if (data[0] >> HFDP_HEAD_DF_OFFSET & 0x1) {
         if (master->mgr.local_bf == 0) {
-            hfdp_ring_enqueue(&master->mgr.recv_nrtd, data + HFDP_HEAD_LEN + master->mgr.remote_rtd_len, master->mgr.remote_nrtd_len);
+            ringbuffer_in(&master->mgr.recv_nrtd, data + HFDP_HEAD_LEN + master->mgr.remote_rtd_len, master->mgr.remote_nrtd_len);
             // 后续是否会满
-            if (hfdp_ring_is_full(&master->mgr.recv_nrtd, master->mgr.remote_nrtd_len)) {
+            if (ringbuffer_is_full(&master->mgr.recv_nrtd, master->mgr.remote_nrtd_len)) {
                 master->mgr.local_bf = 1;
             }
         }
@@ -120,12 +120,12 @@ int hfdp_master_write_nrtd(hfdp_master_t *master, uint8_t *data, uint32_t len) {
         return -1;
     }
 
-    if (hfdp_ring_is_full(&master->mgr.send_nrtd, len)) {
+    if (ringbuffer_is_full(&master->mgr.send_nrtd, len)) {
         HFDP_LOG("send nrtd ring is full\r\n");
         return -1;
     }
 
-    return hfdp_ring_enqueue(&master->mgr.send_nrtd, data, len);
+    return ringbuffer_in(&master->mgr.send_nrtd, data, len);
 }
 
 int hfdp_master_read_nrtd(hfdp_master_t *master, uint8_t *buf, uint32_t len) {
@@ -136,14 +136,14 @@ int hfdp_master_read_nrtd(hfdp_master_t *master, uint8_t *buf, uint32_t len) {
     }
     if (len == 0) return 0;
 
-    if (hfdp_ring_is_empty(&master->mgr.recv_nrtd)) {
+    if (ringbuffer_is_empty(&master->mgr.recv_nrtd)) {
         return 0;
     }
 
-    ret = hfdp_ring_dequeue(&master->mgr.recv_nrtd, buf, len);
+    ret = ringbuffer_out(&master->mgr.recv_nrtd, buf, len);
 
     if (master->mgr.local_bf) {
-        if (!hfdp_ring_is_full(&master->mgr.recv_nrtd, master->mgr.remote_nrtd_len)) {
+        if (!ringbuffer_is_full(&master->mgr.recv_nrtd, master->mgr.remote_nrtd_len)) {
             master->mgr.local_bf = 0;
         }
     }

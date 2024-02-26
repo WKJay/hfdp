@@ -5,6 +5,7 @@
  * @Version
  * @Date           2024-02-04
  ***************************************************************/
+#include <string.h>
 #include "hfdp_utils.h"
 
 static unsigned const char table_crc[256] = {
@@ -32,77 +33,97 @@ unsigned char hfdp_crc8(unsigned char *message, unsigned char byte_len) {
     return (~crc);
 }
 
-int hfdp_ring_init(hfdp_ring_t *ring) {
-    if (ring == NULL) {
-        HFDP_LOG("ring is NULL\r\n");
+#define ringbuffer_unused(r) ((r)->msize - 1 - ringbuffer_len_get(r))
+
+/**
+ * @brief 初始化 RingBuffer
+ * @param rb ringbuffer_t 结构体指针
+ * @param buf 缓冲区指针
+ * @param size 缓冲区大小（由于无锁机制，实际能存储的数据数量会减一）
+ * @return 成功返回0，失败返回-1
+ */
+int ringbuffer_init(ringbuffer_t *rb, uint8_t *buf, uint32_t size) {
+    if (rb == NULL || buf == NULL || size == 0) {
         return -1;
     }
-
-    ring->len = 0;
-    ring->head = 0;
-    ring->tail = 0;
-
+    rb->buffer = buf;
+    rb->msize = size;
+    rb->out = 0;
+    rb->in = 0;
     return 0;
 }
 
-uint8_t hfdp_ring_is_empty(hfdp_ring_t *ring) {
-    if (ring == NULL) {
-        HFDP_LOG("ring is NULL\r\n");
+/**
+ * @brief 获取 RingBuffer 中的数据长度
+ * @param rb ringbuffer_t 结构体指针
+ * @return 数据长度
+ */
+uint32_t ringbuffer_len_get(ringbuffer_t *rb) {
+    if (rb == NULL) {
+        return 0;
+    }
+    if (rb->in >= rb->out) {
+        return rb->in - rb->out;
+    } else {
+        return rb->msize - (rb->out - rb->in);
+    }
+}
+
+/**
+ * @brief 判断 RingBuffer 是否已满
+ * @param rb ringbuffer_t 结构体指针
+ * @param len 需要存储的数据长度
+ * @return 已满返回1，未满返回0
+ */
+uint8_t ringbuffer_is_full(ringbuffer_t *rb, uint32_t len) { return ringbuffer_unused(rb) < len; }
+
+uint8_t ringbuffer_is_empty(ringbuffer_t *rb) { return rb->in == rb->out; }
+
+uint32_t ringbuffer_in(ringbuffer_t *rb, uint8_t *data, uint32_t len) {
+    uint32_t l;
+    if (len == 0 || rb == NULL || data == NULL) return 0;
+
+    if (ringbuffer_is_full(rb, len)) {
         return 0;
     }
 
-    return ring->len == 0;
+    if (rb->msize - rb->in >= len) {
+        l = len;
+    } else {
+        l = rb->msize - rb->in;
+    }
+
+    memcpy(rb->buffer + rb->in, data, l);
+    memcpy(rb->buffer, data + l, len - l);
+
+    rb->in = (rb->in + len) % rb->msize;  // 待优化，性能测试
+
+    return len;
 }
 
-uint8_t hfdp_ring_is_full(hfdp_ring_t *ring, RING_PTR_TYPE len) {
-    if (ring == NULL) {
-        HFDP_LOG("ring is NULL\r\n");
-        return 0;
+uint32_t ringbuffer_out(ringbuffer_t *rb, uint8_t *data, uint32_t len) {
+    uint32_t l, real_len;
+    if (len == 0 || rb == NULL || data == NULL) return 0;
+
+    real_len = ringbuffer_len_get(rb);
+    if (real_len == 0) return 0;
+
+    if (real_len > len) real_len = len;
+
+    if (rb->msize - rb->out >= real_len) {
+        l = real_len;
+    } else {
+        l = rb->msize - rb->out;
     }
 
-    return (ring->len + len) > HFDP_NRT_BUFFER_LEN;
-}
+    memcpy(data, rb->buffer + rb->out, l);
+    memcpy(data + l, rb->buffer, real_len - l);
 
-int hfdp_ring_enqueue(hfdp_ring_t *ring, uint8_t *data, RING_PTR_TYPE len) {
-    RING_PTR_TYPE i;
-    if (len == 0) return 0;
+    // 清空移出的数据，调试用
+    //  memset(rb->buffer + rb->out, 0, l);
+    //  memset(rb->buffer, 0, real_len - l);
 
-    if (ring == NULL || data == NULL) {
-        HFDP_LOG("ring or data is NULL\r\n");
-        return -1;
-    }
-
-    if (hfdp_ring_is_full(ring, len)) {
-        HFDP_LOG("ring is full\r\n");
-        return -1;
-    }
-
-    for (i = 0; i < len; i++) {
-        ring->buffer[ring->tail] = data[i];
-        ring->tail = (ring->tail + 1) % HFDP_NRT_BUFFER_LEN;
-    }
-    ring->len += len;
-
-    return 0;
-}
-
-int hfdp_ring_dequeue(hfdp_ring_t *ring, uint8_t *data, RING_PTR_TYPE len) {
-    RING_PTR_TYPE i;
-    RING_PTR_TYPE real_len;
-    if (len == 0) return 0;
-
-    if (ring == NULL || data == NULL) {
-        HFDP_LOG("ring or data is NULL\r\n");
-        return -1;
-    }
-
-    real_len = ring->len < len ? ring->len : len;
-
-    for (i = 0; i < real_len; i++) {
-        data[i] = ring->buffer[ring->head];
-        ring->head = (ring->head + 1) % HFDP_NRT_BUFFER_LEN;
-    }
-    ring->len -= real_len;
+    rb->out = (rb->out + real_len) % rb->msize;  // 待优化，性能测试
 
     return real_len;
 }
